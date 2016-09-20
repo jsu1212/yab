@@ -166,6 +166,7 @@ func shellAutocomplete() {
 
 	} else if len(args) == 3 {
 		// looking for function name
+		// TODO: consider autocompleting in ServiceName::functionName form instead of by space
 		fileName := args[0]
 		serviceName := args[1]
 		functionName := args[2]
@@ -270,12 +271,25 @@ func pad(depth int) string {
 }
 
 
-func generateTemplate(function *ast.Function, types map[string]interface{}, depth int) {
+func generateTemplate(idl, thriftService string, function *ast.Function, types map[string]interface{}) string {
 	// TODO: types feels like it should be a member variable of something
 
-	for _, param := range function.Parameters {
-		fmt.Printf("%s%s: %s\n", pad(depth), param.Name, defaultValue(param.Type, types, depth))
+	serviceName := strings.Split(filepath.Base(idl), ".")[0]
+
+	lines := []string{
+		"service_name: " + serviceName,
+		"thrift_service: " + thriftService,
+		"idl: " + idl,
+		"function: " + function.Name,
+		"arguments:",
 	}
+
+	for _, param := range function.Parameters {
+		line := fmt.Sprintf("%s%s: %s", pad(INDENT), param.Name, defaultValue(param.Type, types, INDENT))
+		lines = append(lines, line)
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func main() {
@@ -337,6 +351,7 @@ func main() {
 			log.Fatalf("No function named %s", serviceName)
 		}
 
-		generateTemplate(function, types, 0)
+		tmpl := generateTemplate(fileName, serviceName, function, types)
+		fmt.Println(tmpl)
 	}
 }
