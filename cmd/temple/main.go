@@ -16,11 +16,10 @@ func getAllRoots(f string) [][]string {
 	var roots []string
 
 	f = path.Clean(f)
-	parts := strings.Split(f, "/")
+	var parts sort.StringSlice = strings.Split(f, "/")
 
-	sort.Sort(sort.Reverse(sort.StringSlice(parts)))
-
-	for _, part := range (parts) {
+	for i:=len(parts)-1; i>=0; i-- {
+		part := parts[i]
 		roots = append(roots, part)
 		result = append(result, roots)
 	}
@@ -50,10 +49,22 @@ func find_thrift_files() []string {
 	return result
 }
 
+func fmt_root(root []string) string {
+	result := root[0]
+	for _, part := range root[1:] {
+		result += fmt.Sprintf("[%s]", part)
+	}
+	return result
+}
+
 func main() {
 	files := find_thrift_files()
 
 	for _, file := range files {
 		fmt.Println(file)
+		for _, root := range getAllRoots(file) {
+			fmt.Println(fmt_root(root))
+		}
+		fmt.Println("----------")
 	}
 }
