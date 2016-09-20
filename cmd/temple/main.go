@@ -7,6 +7,9 @@ import (
 	"sort"
 	"os"
 	"path/filepath"
+	"io/ioutil"
+	"github.com/thriftrw/thriftrw-go/idl"
+	"github.com/thriftrw/thriftrw-go/ast"
 )
 
 // TOOD: kill camel case
@@ -132,8 +135,29 @@ func shellAutocomplete() {
 		if len(opts) == 1 {
 			opts = []string{file_map[opts[0]]}
 		}
-	} else {
-		panic("TODO")
+
+	} else if len(args) == 2 {
+		fileName := args[0]
+		service := args[1]
+
+		bytes, err := ioutil.ReadFile(fileName)
+		if (err != nil) {
+			panic(err)
+		}
+
+		thrift, err := idl.Parse(bytes)
+		if (err != nil) {
+			panic(fileName)
+		}
+
+		for _, def := range (thrift.Definitions) {
+			switch t := def.(type) {
+			case *ast.Service:
+				opts = append(opts, t.Name)
+			}
+		}
+
+		opts = complete(opts, service)
 	}
 
 	fmt.Println(strings.Join(opts, " "))
