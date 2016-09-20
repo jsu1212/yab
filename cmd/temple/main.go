@@ -205,14 +205,14 @@ func shellAutocomplete() {
 	fmt.Println(strings.Join(opts, " "))
 }
 
-func structDefault(s *ast.Struct, structs map[string]*ast.Struct, depth int) string {
+func structDefault(s *ast.Struct, types map[string]interface{}, depth int) string {
 	depth += INDENT
 
 	var lines []string
 	lines = append(lines, "")
 
 	for _, field := range s.Fields {
-		dft := defaultValue(field.Type, structs, depth)
+		dft := defaultValue(field.Type, types, depth)
 		line := fmt.Sprintf("%s%s: %s", pad(depth), field.Name, dft)
 		lines = append(lines, line)
 	}
@@ -220,12 +220,12 @@ func structDefault(s *ast.Struct, structs map[string]*ast.Struct, depth int) str
 	return strings.Join(lines, "\n")
 }
 
-func defaultValue(astType ast.Type, structs map[string]*ast.Struct, depth int) string {
+func defaultValue(astType ast.Type, types map[string]interface{}, depth int) string {
 	switch t := astType.(type) {
 	case ast.BaseType:
 		switch t.ID {
 		case ast.BoolTypeID:
-			return `"false"`
+			return `false`
 		case ast.I8TypeID, ast.I16TypeID, ast.I32TypeID, ast.I64TypeID:
 			return "0"
 		case ast.DoubleTypeID:
@@ -237,11 +237,21 @@ func defaultValue(astType ast.Type, structs map[string]*ast.Struct, depth int) s
 		}
 
 	case ast.TypeReference:
-		s, ok := structs[t.Name]
+		s, ok := types[t.Name]
 		if !ok {
-			log.Fatalf("Unknown struct: %s (%s)", t.Name, structs)
+			log.Fatalf("Unknown struct: %s", t.Name)
 		}
-		return structDefault(s, structs, depth)
+
+		switch pt := s.(type) {
+		case *ast.Struct:
+			return structDefault(pt, types, depth)
+		case *ast.Enum:
+			return "0"	// TODO: needs some work
+		case *ast.Typedef:
+			return defaultValue(pt.Type, types, depth)	// TODO: handle annotations
+		default:
+			log.Fatalf("Unknown struct: %s", t.Name)
+		}
 
 	case ast.ListType:
 		return "[]"	// TODO
@@ -260,11 +270,11 @@ func pad(depth int) string {
 }
 
 
-func generateTemplate(function *ast.Function, structs map[string]*ast.Struct, depth int) {
-	// TODO: structs feels like it should be a member variable of something
+func generateTemplate(function *ast.Function, types map[string]interface{}, depth int) {
+	// TODO: types feels like it should be a member variable of something
 
 	for _, param := range function.Parameters {
-		fmt.Printf("%s%s: %s\n", pad(depth), param.Name, defaultValue(param.Type, structs, depth))
+		fmt.Printf("%s%s: %s\n", pad(depth), param.Name, defaultValue(param.Type, types, depth))
 	}
 }
 
@@ -286,12 +296,16 @@ func main() {
 			panic(fileName)
 		}
 
-		structs := make(map[string]*ast.Struct)
+		types := make(map[string]interface{})
 
 		for _, def := range thrift.Definitions {
 			switch t := def.(type) {
 			case *ast.Struct:
-				structs[t.Name] = t
+				types[t.Name] = t
+			case *ast.Enum:
+				types[t.Name] = t
+			case *ast.Typedef:
+				types[t.Name] = t
 			}
 		}
 
@@ -312,9 +326,6 @@ func main() {
 
 		var function *ast.Function
 
-
-
-
 		for _, proc := range service.Functions {
 			if proc.Name == functionName {
 				function = proc
@@ -326,6 +337,6 @@ func main() {
 			log.Fatalf("No function named %s", serviceName)
 		}
 
-		generateTemplate(function, structs, 0)
+		generateTemplate(function, types, 0)
 	}
 }
