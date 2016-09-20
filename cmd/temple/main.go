@@ -21,7 +21,7 @@ func getAllRoots(f string) []string {
 	var parts sort.StringSlice = strings.Split(f, "/")
 	//fmt.Println(parts)
 
-	for i:=len(parts)-1; i>=0; i-- {
+	for i := len(parts) - 1; i >= 0; i-- {
 		part := parts[i]
 		roots = append(roots, part)
 		full := strings.Join(roots, "/")
@@ -87,21 +87,77 @@ func populate_thrift_file_map(file_map map[string]string) {
 	}
 }
 
-func main() {
-	//files := find_thrift_files()
+func keys(m map[string]string) []string {
+	var result []string
+	for k, _ := range m {
+		result = append(result, k)
+	}
+	return result
+}
 
-	//for _, file := range files {
-	//	fmt.Println(file)
-	//	for _, root := range getAllRoots(file) {
-	//		fmt.Println(fmt_root(root))
-	//	}
-	//	fmt.Println("----------")
-	//}
+func complete(options []string, prefix string) []string {
+	var result []string
+
+	for _, opt := range options {
+		if strings.HasPrefix(opt, prefix) {
+			result = append(result, opt)
+		}
+	}
+
+	return result
+}
+
+func shellAutocomplete() {
+	line := os.Args[1]
+	args := strings.Fields(line)
+	args = args[1:]    // remove actual name of command
 
 	file_map := make(map[string]string)
 	populate_thrift_file_map(file_map)
 
-	for k, v := range file_map {
-		fmt.Println(k, v)
+	if strings.HasSuffix(line, " ") {
+		args = append(args, "")        // we're working on the next new argument
+	}
+
+	var opts []string
+
+	if len(args) == 1 {
+		// looking for idl file
+		idl := args[0]
+
+		idls := keys(file_map)
+
+		opts = complete(idls, idl)
+
+		if len(opts) == 1 {
+			opts = []string{file_map[opts[0]]}
+		}
+	} else {
+		panic("TODO")
+	}
+
+	fmt.Println(strings.Join(opts, " "))
+}
+
+func main() {
+	if len(os.Getenv("SHELL_AUTOCOMPLETE")) > 0 {
+		shellAutocomplete()
+	} else {
+		//files := find_thrift_files()
+
+		//for _, file := range files {
+		//	fmt.Println(file)
+		//	for _, root := range getAllRoots(file) {
+		//		fmt.Println(fmt_root(root))
+		//	}
+		//	fmt.Println("----------")
+		//}
+
+		file_map := make(map[string]string)
+		populate_thrift_file_map(file_map)
+
+		for k, v := range file_map {
+			fmt.Println(k, v)
+		}
 	}
 }
