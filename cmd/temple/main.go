@@ -163,7 +163,6 @@ func shellAutocomplete() {
 
 	} else if len(args) == 3 {
 		// looking for procedure name
-		// looking for thrift service name
 		fileName := args[0]
 		serviceName := args[1]
 		procedureName := args[2]
