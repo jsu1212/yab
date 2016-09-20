@@ -18,6 +18,7 @@ import (
 // TODO: try to reduce copy/paste in the different stages
 
 const IDL_PATH string = "./uber-idl"
+const INDENT = 4
 
 func getAllRoots(f string) []string {
 	var result []string
@@ -204,7 +205,22 @@ func shellAutocomplete() {
 	fmt.Println(strings.Join(opts, " "))
 }
 
-func defaultValue(astType ast.Type, structs map[string]*ast.Struct) string {
+func structDefault(s *ast.Struct, structs map[string]*ast.Struct, depth int) string {
+	depth += INDENT
+
+	var lines []string
+	lines = append(lines, "")
+
+	for _, field := range s.Fields {
+		dft := defaultValue(field.Type, structs, depth)
+		line := fmt.Sprintf("%s%s: %s", pad(depth), field.Name, dft)
+		lines = append(lines, line)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func defaultValue(astType ast.Type, structs map[string]*ast.Struct, depth int) string {
 	switch t := astType.(type) {
 	case ast.BaseType:
 		switch t.ID {
@@ -217,11 +233,21 @@ func defaultValue(astType ast.Type, structs map[string]*ast.Struct) string {
 		case ast.StringTypeID:
 			return `''`
 		case ast.BinaryTypeID:
-			return `''`	//TODO: needs somt thought
+			return `''`	//TODO: needs some thought
 		}
+
 	case ast.TypeReference:
-		s := structs[t.Name]
-		return fmt.Sprintf(`"struct %s (%d fields)"`, s.Name, len(s.Fields))
+		s, ok := structs[t.Name]
+		if !ok {
+			log.Fatalf("Unknown struct: %s (%s)", t.Name, structs)
+		}
+		return structDefault(s, structs, depth)
+
+	case ast.ListType:
+		return "[]"	// TODO
+
+	case ast.MapType:
+		return "{}"	// TODO
 
 	default:
 		log.Fatalf("Unknown type: %s", reflect.TypeOf(astType).String())
@@ -229,12 +255,16 @@ func defaultValue(astType ast.Type, structs map[string]*ast.Struct) string {
 	panic("Should not get here")
 }
 
+func pad(depth int) string {
+	return strings.Repeat(" ", depth)
+}
 
-func generateTemplate(function *ast.Function, structs map[string]*ast.Struct) {
+
+func generateTemplate(function *ast.Function, structs map[string]*ast.Struct, depth int) {
 	// TODO: structs feels like it should be a member variable of something
 
 	for _, param := range function.Parameters {
-		fmt.Printf("%s: %s\n", param.Name, defaultValue(param.Type, structs))
+		fmt.Printf("%s%s: %s\n", pad(depth), param.Name, defaultValue(param.Type, structs, depth))
 	}
 }
 
@@ -296,6 +326,6 @@ func main() {
 			log.Fatalf("No function named %s", serviceName)
 		}
 
-		generateTemplate(function, structs)
+		generateTemplate(function, structs, 0)
 	}
 }
