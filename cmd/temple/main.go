@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"reflect"
 )
 
 // TOOD: kill camel case
@@ -203,6 +204,40 @@ func shellAutocomplete() {
 	fmt.Println(strings.Join(opts, " "))
 }
 
+func defaultValue(astType ast.Type, structs map[string]*ast.Struct) string {
+	switch t := astType.(type) {
+	case ast.BaseType:
+		switch t.ID {
+		case ast.BoolTypeID:
+			return `"false"`
+		case ast.I8TypeID, ast.I16TypeID, ast.I32TypeID, ast.I64TypeID:
+			return "0"
+		case ast.DoubleTypeID:
+			return "0.0"
+		case ast.StringTypeID:
+			return `''`
+		case ast.BinaryTypeID:
+			return `''`	//TODO: needs somt thought
+		}
+	case ast.TypeReference:
+		s := structs[t.Name]
+		return fmt.Sprintf(`"struct %s (%d fields)"`, s.Name, len(s.Fields))
+
+	default:
+		log.Fatalf("Unknown type: %s", reflect.TypeOf(astType).String())
+	}
+	panic("Should not get here")
+}
+
+
+func generateTemplate(function *ast.Function, structs map[string]*ast.Struct) {
+	// TODO: structs feels like it should be a member variable of something
+
+	for _, param := range function.Parameters {
+		fmt.Printf("%s: %s\n", param.Name, defaultValue(param.Type, structs))
+	}
+}
+
 func main() {
 	if len(os.Getenv("SHELL_AUTOCOMPLETE")) > 0 {
 		shellAutocomplete()
@@ -221,6 +256,15 @@ func main() {
 			panic(fileName)
 		}
 
+		structs := make(map[string]*ast.Struct)
+
+		for _, def := range thrift.Definitions {
+			switch t := def.(type) {
+			case *ast.Struct:
+				structs[t.Name] = t
+			}
+		}
+
 		var service *ast.Service
 		for _, def := range thrift.Definitions {
 			switch t := def.(type) {
@@ -237,6 +281,10 @@ func main() {
 		}
 
 		var function *ast.Function
+
+
+
+
 		for _, proc := range service.Functions {
 			if proc.Name == functionName {
 				function = proc
@@ -248,8 +296,6 @@ func main() {
 			log.Fatalf("No function named %s", serviceName)
 		}
 
-		for _, param := range function.Parameters {
-			fmt.Println(param.Name)
-		}
+		generateTemplate(function, structs)
 	}
 }
