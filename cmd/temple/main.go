@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
-	"path"
-	"strings"
-	"sort"
-	"os"
-	"path/filepath"
-	"io/ioutil"
-	"github.com/thriftrw/thriftrw-go/idl"
 	"github.com/thriftrw/thriftrw-go/ast"
+	"github.com/thriftrw/thriftrw-go/idl"
+	"io/ioutil"
+	"log"
+	"os"
+	"path"
+	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // TOOD: kill camel case
@@ -38,7 +39,7 @@ func find_thrift_files() []string {
 	var result []string
 
 	err := filepath.Walk(IDL_PATH, func(p string, info os.FileInfo, err error) error {
-		if (err != nil) {
+		if err != nil {
 			return err
 		}
 
@@ -49,7 +50,7 @@ func find_thrift_files() []string {
 		return nil
 	})
 
-	if (err != nil) {
+	if err != nil {
 		panic(err)
 	}
 
@@ -113,13 +114,13 @@ func complete(options []string, prefix string) []string {
 func shellAutocomplete() {
 	line := os.Args[1]
 	args := strings.Fields(line)
-	args = args[1:]    // remove actual name of command
+	args = args[1:] // remove actual name of command
 
 	file_map := make(map[string]string)
 	populate_thrift_file_map(file_map)
 
 	if strings.HasSuffix(line, " ") {
-		args = append(args, "")        // we're working on the next new argument
+		args = append(args, "") // we're working on the next new argument
 	}
 
 	var opts []string
@@ -137,27 +138,66 @@ func shellAutocomplete() {
 		}
 
 	} else if len(args) == 2 {
+		// looking for thrift service name
 		fileName := args[0]
-		service := args[1]
+		serviceName := args[1]
 
 		bytes, err := ioutil.ReadFile(fileName)
-		if (err != nil) {
+		if err != nil {
 			panic(err)
 		}
 
 		thrift, err := idl.Parse(bytes)
-		if (err != nil) {
+		if err != nil {
 			panic(fileName)
 		}
 
-		for _, def := range (thrift.Definitions) {
+		for _, def := range thrift.Definitions {
 			switch t := def.(type) {
 			case *ast.Service:
 				opts = append(opts, t.Name)
 			}
 		}
 
-		opts = complete(opts, service)
+		opts = complete(opts, serviceName)
+
+	} else if len(args) == 3 {
+		// looking for procedure name
+		// looking for thrift service name
+		fileName := args[0]
+		serviceName := args[1]
+		procedureName := args[2]
+
+		bytes, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			panic(err)
+		}
+
+		thrift, err := idl.Parse(bytes)
+		if err != nil {
+			panic(fileName)
+		}
+
+		var service *ast.Service
+		for _, def := range thrift.Definitions {
+			switch t := def.(type) {
+			case *ast.Service:
+				if t.Name == serviceName {
+					service = t
+					break
+				}
+			}
+		}
+
+		if service == nil {
+			log.Fatalf("No service named %s", serviceName)
+		}
+
+		for _, proc := range service.Functions {
+			opts = append(opts, proc.Name)
+		}
+
+		opts = complete(opts, procedureName)
 	}
 
 	fmt.Println(strings.Join(opts, " "))
