@@ -6,7 +6,10 @@ import (
 	"strings"
 	"sort"
 	"os"
+	"path/filepath"
 )
+
+const IDL_PATH string = "./uber-idl"
 
 func getAllRoots(f string) [][]string {
 	var result [][]string
@@ -25,8 +28,32 @@ func getAllRoots(f string) [][]string {
 	return result
 }
 
+func find_thrift_files() []string {
+	var result []string
+
+	err := filepath.Walk(IDL_PATH, func(p string, info os.FileInfo, err error) error {
+		if (err != nil) {
+			return err
+		}
+
+		if path.Ext(p) == ".thrift" {
+			result = append(result, p)
+		}
+
+		return nil
+	})
+
+	if (err != nil) {
+		panic(err)
+	}
+
+	return result
+}
+
 func main() {
-	for _, root := range getAllRoots(os.Args[1]) {
-		fmt.Println(root)
+	files := find_thrift_files()
+
+	for _, file := range files {
+		fmt.Println(file)
 	}
 }
