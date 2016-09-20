@@ -9,19 +9,23 @@ import (
 	"path/filepath"
 )
 
+// TOOD: kill camel case
+
 const IDL_PATH string = "./uber-idl"
 
-func getAllRoots(f string) [][]string {
-	var result [][]string
+func getAllRoots(f string) []string {
+	var result []string
 	var roots []string
 
 	f = path.Clean(f)
 	var parts sort.StringSlice = strings.Split(f, "/")
+	//fmt.Println(parts)
 
 	for i:=len(parts)-1; i>=0; i-- {
 		part := parts[i]
 		roots = append(roots, part)
-		result = append(result, roots)
+		full := strings.Join(roots, "/")
+		result = append(result, full)
 	}
 
 	return result
@@ -49,22 +53,55 @@ func find_thrift_files() []string {
 	return result
 }
 
-func fmt_root(root []string) string {
-	result := root[0]
-	for _, part := range root[1:] {
+func fmt_root(root string) string {
+	parts := strings.Split(root, "/")
+	result := parts[0]
+	for _, part := range parts[1:] {
 		result += fmt.Sprintf("[%s]", part)
 	}
 	return result
 }
 
-func main() {
+func populate_thrift_file_map(file_map map[string]string) {
 	files := find_thrift_files()
+	rootCounts := make(map[string]int)
 
-	for _, file := range files {
-		fmt.Println(file)
-		for _, root := range getAllRoots(file) {
-			fmt.Println(fmt_root(root))
+	// find duplicate thrift files, working backwards along the path
+	for _, full := range files {
+		for _, root := range getAllRoots(full) {
+			key := fmt_root(root)
+			rootCounts[key]++
 		}
-		fmt.Println("----------")
+	}
+
+	// for each file, insert the shortest non-duplicate root along the backwards path
+	for _, full := range files {
+		for _, root := range getAllRoots(full) {
+			key := fmt_root(root)
+			count := rootCounts[key]
+			if count == 1 {
+				file_map[key] = full
+				break
+			}
+		}
+	}
+}
+
+func main() {
+	//files := find_thrift_files()
+
+	//for _, file := range files {
+	//	fmt.Println(file)
+	//	for _, root := range getAllRoots(file) {
+	//		fmt.Println(fmt_root(root))
+	//	}
+	//	fmt.Println("----------")
+	//}
+
+	file_map := make(map[string]string)
+	populate_thrift_file_map(file_map)
+
+	for k, v := range file_map {
+		fmt.Println(k, v)
 	}
 }
