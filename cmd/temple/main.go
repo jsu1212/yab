@@ -14,6 +14,7 @@ import (
 )
 
 // TOOD: kill camel case
+// TODO: try to reduce copy/paste in the different stages
 
 const IDL_PATH string = "./uber-idl"
 
@@ -162,10 +163,10 @@ func shellAutocomplete() {
 		opts = complete(opts, serviceName)
 
 	} else if len(args) == 3 {
-		// looking for procedure name
+		// looking for function name
 		fileName := args[0]
 		serviceName := args[1]
-		procedureName := args[2]
+		functionName := args[2]
 
 		bytes, err := ioutil.ReadFile(fileName)
 		if err != nil {
@@ -196,7 +197,7 @@ func shellAutocomplete() {
 			opts = append(opts, proc.Name)
 		}
 
-		opts = complete(opts, procedureName)
+		opts = complete(opts, functionName)
 	}
 
 	fmt.Println(strings.Join(opts, " "))
@@ -206,21 +207,49 @@ func main() {
 	if len(os.Getenv("SHELL_AUTOCOMPLETE")) > 0 {
 		shellAutocomplete()
 	} else {
-		//files := find_thrift_files()
+		fileName := os.Args[1]
+		serviceName := os.Args[2]
+		functionName := os.Args[3]
 
-		//for _, file := range files {
-		//	fmt.Println(file)
-		//	for _, root := range getAllRoots(file) {
-		//		fmt.Println(fmt_root(root))
-		//	}
-		//	fmt.Println("----------")
-		//}
+		bytes, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			panic(err)
+		}
 
-		file_map := make(map[string]string)
-		populate_thrift_file_map(file_map)
+		thrift, err := idl.Parse(bytes)
+		if err != nil {
+			panic(fileName)
+		}
 
-		for k, v := range file_map {
-			fmt.Println(k, v)
+		var service *ast.Service
+		for _, def := range thrift.Definitions {
+			switch t := def.(type) {
+			case *ast.Service:
+				if t.Name == serviceName {
+					service = t
+					break
+				}
+			}
+		}
+
+		if service == nil {
+			log.Fatalf("No service named %s", serviceName)
+		}
+
+		var function *ast.Function
+		for _, proc := range service.Functions {
+			if proc.Name == functionName {
+				function = proc
+				break
+			}
+		}
+
+		if function == nil {
+			log.Fatalf("No function named %s", serviceName)
+		}
+
+		for _, param := range function.Parameters {
+			fmt.Println(param.Name)
 		}
 	}
 }
