@@ -36,8 +36,8 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/uber/tchannel-go"
-	"io/ioutil"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
 )
 
 var errHealthAndMethod = errors.New("cannot specify method name and use --health")
@@ -223,14 +223,15 @@ func parseDefaultConfigs(parser *flags.Parser) error {
 }
 
 type template struct {
-	ServiceName   string `yaml:"service_name"`
-	ThriftService string `yaml:"thrift_service"`
-	IDL           string `yaml:"idl"`		// TODO: rename ThriftFile
-	Function      string `yaml:"function"`
-	Arguments     interface{} `yaml:"arguments"`
+	ServiceName   string            `yaml:"service_name"`
+	ThriftService string            `yaml:"thrift_service"`
+	IDL           string            `yaml:"idl"` 	// TODO: rename to ThriftFile
+	Function      string            `yaml:"function"`
+	Headers       map[string]string `yaml:"headers"`
+	Arguments     interface{}       `yaml:"arguments"`
 }
 
-func readYamlRequest(opts *Options) []byte {
+func readYamlRequest(opts *Options) ([]byte, map[string]string) {
 	bytes, err := ioutil.ReadFile(opts.ROpts.YamlTemplate)
 	if err != nil {
 		log.Fatalf("Unable to read file: %v\n", err)
@@ -255,27 +256,29 @@ func readYamlRequest(opts *Options) []byte {
 	function := fmt.Sprintf("%s::%s", t.ThriftService, t.Function)
 
 	opts.ROpts.ThriftFile = t.IDL
-	opts.ROpts.MethodName = function		// TOOD: don't overwrite anything on command line
+	opts.ROpts.MethodName = function // TOOD: don't overwrite anything on command line
 	opts.TOpts.ServiceName = t.ServiceName
 
-	return body
+	return body, t.Headers
 }
 
 func runWithOptions(opts Options, out output) {
 	var reqInput []byte
+	var headers map[string]string
+
 	if opts.ROpts.YamlTemplate != "" {
-		reqInput = readYamlRequest(&opts)
+		reqInput, headers = readYamlRequest(&opts)
 	} else {
 		var err error
 		reqInput, err = getRequestInput(opts.ROpts.RequestJSON, opts.ROpts.RequestFile)
 		if err != nil {
 			out.Fatalf("Failed while loading body input: %v\n", err)
 		}
-	}
 
-	headers, err := getHeaders(opts.ROpts.HeadersJSON, opts.ROpts.HeadersFile)
-	if err != nil {
-		out.Fatalf("Failed while loading headers input: %v\n", err)
+		headers, err = getHeaders(opts.ROpts.HeadersJSON, opts.ROpts.HeadersFile)
+		if err != nil {
+			out.Fatalf("Failed while loading headers input: %v\n", err)
+		}
 	}
 
 	serializer, err := NewSerializer(opts.ROpts)
