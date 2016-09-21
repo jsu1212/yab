@@ -36,6 +36,8 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/uber/tchannel-go"
+	"io/ioutil"
+	"gopkg.in/yaml.v2"
 )
 
 var errHealthAndMethod = errors.New("cannot specify method name and use --health")
@@ -220,10 +222,55 @@ func parseDefaultConfigs(parser *flags.Parser) error {
 	return nil
 }
 
-func runWithOptions(opts Options, out output) {
-	reqInput, err := getRequestInput(opts.ROpts.RequestJSON, opts.ROpts.RequestFile)
+type template struct {
+	ServiceName   string `yaml:"service_name"`
+	ThriftService string `yaml:"thrift_service"`
+	IDL           string `yaml:"idl"`		// TODO: rename ThriftFile
+	Function      string `yaml:"function"`
+	Arguments     interface{} `yaml:"arguments"`
+}
+
+func readYamlRequest(opts *Options) []byte {
+	bytes, err := ioutil.ReadFile(opts.ROpts.YamlTemplate)
 	if err != nil {
-		out.Fatalf("Failed while loading body input: %v\n", err)
+		log.Fatalf("Unable to read file: %v\n", err)
+	}
+
+	t := template{}
+
+	err = yaml.Unmarshal(bytes, &t)
+
+	if err != nil {
+		log.Fatalf("Unable to parse file: %v\n", err)
+	}
+
+	body, err := yaml.Marshal(t.Arguments)
+
+	fmt.Println(string(body))
+
+	if err != nil {
+		log.Fatalf("Unable to marshal json: %v\n", err)
+	}
+
+	function := fmt.Sprintf("%s::%s", t.ThriftService, t.Function)
+
+	opts.ROpts.ThriftFile = t.IDL
+	opts.ROpts.MethodName = function		// TOOD: don't overwrite anything on command line
+	opts.TOpts.ServiceName = t.ServiceName
+
+	return body
+}
+
+func runWithOptions(opts Options, out output) {
+	var reqInput []byte
+	if opts.ROpts.YamlTemplate != "" {
+		reqInput = readYamlRequest(&opts)
+	} else {
+		var err error
+		reqInput, err = getRequestInput(opts.ROpts.RequestJSON, opts.ROpts.RequestFile)
+		if err != nil {
+			out.Fatalf("Failed while loading body input: %v\n", err)
+		}
 	}
 
 	headers, err := getHeaders(opts.ROpts.HeadersJSON, opts.ROpts.HeadersFile)
