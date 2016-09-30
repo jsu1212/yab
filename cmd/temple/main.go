@@ -277,10 +277,10 @@ func generateTemplate(idl, thriftService string, function *ast.Function, types m
 	serviceName := strings.Split(filepath.Base(idl), ".")[0]
 
 	lines := []string{
-		"service_name: " + serviceName,
-		"thrift_service: " + thriftService,
-		"idl: " + idl,
-		"function: " + function.Name,
+		"service: " + serviceName,
+		"method: " + fmt.Sprintf("%s::%s", thriftService, function.Name),
+		"thrift: " + idl,
+		"timeout: 5s",
 		"arguments:",
 	}
 
