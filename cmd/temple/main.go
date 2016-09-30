@@ -280,7 +280,7 @@ func generateTemplate(idl, thriftService string, function *ast.Function, types m
 		"service: " + serviceName,
 		"method: " + fmt.Sprintf("%s::%s", thriftService, function.Name),
 		"thrift: " + idl,
-		"timeout: 5s",
+		`timeout: "5s"`,
 		"arguments:",
 	}
 
