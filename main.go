@@ -223,12 +223,11 @@ func parseDefaultConfigs(parser *flags.Parser) error {
 }
 
 type template struct {
-	ServiceName   string            `yaml:"service_name"`
-	ThriftService string            `yaml:"thrift_service"`
-	IDL           string            `yaml:"idl"` 	// TODO: rename to ThriftFile
-	Function      string            `yaml:"function"`
-	Headers       map[string]string `yaml:"headers"`
-	Arguments     interface{}       `yaml:"arguments"`
+	Service string            `yaml:"service"`
+	Thrift  string            `yaml:"thrift"` // TODO: rename to ThriftFile
+	Method  string            `yaml:"method"`
+	Headers map[string]string `yaml:"headers"`
+	Request interface{}       `yaml:"request"`
 }
 
 func readYamlRequest(opts *Options) ([]byte, map[string]string) {
@@ -245,7 +244,7 @@ func readYamlRequest(opts *Options) ([]byte, map[string]string) {
 		log.Fatalf("Unable to parse file: %v\n", err)
 	}
 
-	body, err := yaml.Marshal(t.Arguments)
+	body, err := yaml.Marshal(t.Request)
 
 	fmt.Println(string(body))
 
@@ -253,11 +252,9 @@ func readYamlRequest(opts *Options) ([]byte, map[string]string) {
 		log.Fatalf("Unable to marshal json: %v\n", err)
 	}
 
-	function := fmt.Sprintf("%s::%s", t.ThriftService, t.Function)
-
-	opts.ROpts.ThriftFile = t.IDL
-	opts.ROpts.MethodName = function // TOOD: don't overwrite anything on command line
-	opts.TOpts.ServiceName = t.ServiceName
+	opts.ROpts.ThriftFile = t.Thrift
+	opts.ROpts.MethodName = t.Method // TOOD: don't overwrite anything on command line
+	opts.TOpts.ServiceName = t.Service
 
 	return body, t.Headers
 }
